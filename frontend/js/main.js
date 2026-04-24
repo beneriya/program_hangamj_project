@@ -1,24 +1,28 @@
 (async function () {
-  const listEl = document.getElementById("itemsList");
-  const countEl = document.getElementById("countBadge");
-  const searchEl = document.getElementById("searchInput");
+  // Nuuts huudasnii DOM elementuudiig awna
+  const listEl = document.getElementById("itemsList");    // Shalguuriig haruulah container
+  const countEl = document.getElementById("countBadge");  // Toо haruulah badge
+  const searchEl = document.getElementById("searchInput"); // Hailtiig talbar
 
-  let items = [];
+  let items = []; // API-aas tatsan buh shalguuruud
 
+  // Shalguuriig filter hiij HTML-d haruulna
   function render(filter = "") {
     const q = filter.trim().toLowerCase();
     const filtered = q
       ? items.filter((it) =>
           (it.title_mon || "").toLowerCase().includes(q) ||
-          (it.verbatim || "").toLowerCase().includes(q)
+          (it.verbatim || "").toLowerCase().includes(q)  // Mongol garchig ba verbatim-aar shuur
         )
       : items;
 
+    // Shalguuriin too-iig badge-d haruulna
     countEl.textContent = `${filtered.length} шалгуур`;
     if (filtered.length === 0) {
       listEl.innerHTML = `<div class="col-12 text-center text-muted py-5">Илэрц олдсонгүй</div>`;
       return;
     }
+    // Shalguur tus buriin card HTML uusgene
     listEl.innerHTML = filtered
       .map(
         (it, idx) => `
@@ -33,6 +37,7 @@
       .join("");
   }
 
+  // XSS-ees hamgaalah escape function
   function escapeHtml(s) {
     return String(s || "")
       .replace(/&/g, "&amp;")
@@ -42,12 +47,15 @@
   }
 
   try {
+    // API-aas buh shalguuriig tatna
     items = await API.listItems();
-    render();
+    render(); // Filtergui buh shalguuriig haruulna
   } catch (e) {
+    // Aldaa garvaal hereglegchid medeelne
     listEl.innerHTML = `<div class="col-12"><div class="alert alert-danger">Алдаа: ${e.message}</div></div>`;
   }
 
+  // Hailtiig talbart utga oruulahad shalguuriig shine shuurna
   if (searchEl) {
     searchEl.addEventListener("input", (e) => render(e.target.value));
   }

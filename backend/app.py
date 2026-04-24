@@ -14,25 +14,28 @@ from auth import (
     admin_required,
 )
 
+# Fayliin zamуудыг togtoono
 BASE_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = Path("/frontend") if Path("/frontend").exists() else (BASE_DIR.parent / "frontend")
 UPLOAD_DIR = BASE_DIR / "static" / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)  # uploads folder baihgui bol uusgene
 
 app = Flask(__name__, static_folder=None)
-CORS(app)
+CORS(app)  # frontend өөр port-oos nemeh ued CORS aldaanaas sergiilen idewhjuulne
 
+# Зөвшөөрөгдсөн файлын төрлүүд
 ALLOWED_EXT = {
     "pdf", "doc", "docx", "xls", "xlsx", "png", "jpg", "jpeg", "gif", "webp", "txt", "csv",
 }
 
 
 def allowed_file(filename: str) -> bool:
+    # Fayliin extension zuvshurugtei esehiig shalgana
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXT
 
 
 def _init_admin():
-    """Insert a default admin if admins table is empty."""
+    # Admins husnegt khоgson bol default admin uusgene
     username = os.getenv("ADMIN_USERNAME", "admin")
     password = os.getenv("ADMIN_PASSWORD", "admin123")
     conn = get_conn()
@@ -41,6 +44,7 @@ def _init_admin():
         cur.execute("SELECT COUNT(*) FROM admins")
         (n,) = cur.fetchone()
         if n == 0:
+            # Odoogoor admin baikhgui bol shine admin nemne
             cur.execute(
                 "INSERT INTO admins (username, password_hash) VALUES (%s, %s)",
                 (username, hash_password(password)),
@@ -53,7 +57,7 @@ def _init_admin():
 
 
 def _seed_if_empty():
-    """Run seed data load if kr3_items is empty."""
+    # kr3_items khоgson bol test data achaalat
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -72,33 +76,37 @@ def _seed_if_empty():
 
 
 # ---------------------------------------------------------------------------
-# Static/frontend
+# Frontend fayluudiig ilgeeh route-uud
 # ---------------------------------------------------------------------------
 
 @app.route("/")
 def root():
+    # Nuuts huudasiig butsaana
     return send_from_directory(FRONTEND_DIR, "index.html")
 
 
 @app.route("/<path:path>")
 def frontend_proxy(path):
+    # Bусад frontend fayluudiig (css, js, html) ilgeene
     full = FRONTEND_DIR / path
     if full.is_file():
         return send_from_directory(FRONTEND_DIR, path)
-    # fallback to index for single-page style
+    # Fayl oldsongui bol index.html ruу hariu ilgeene
     return send_from_directory(FRONTEND_DIR, "index.html")
 
 
 @app.route("/uploads/<path:filename>")
 def uploads(filename):
+    # Upload hiigdsen fayluudiig butsaana
     return send_from_directory(UPLOAD_DIR, filename)
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Допomогч функцуud
 # ---------------------------------------------------------------------------
 
 def item_row_to_dict(row):
+    # Database-iin мөрийг dict болгоно
     return {
         "id": row["id"],
         "title_mon": row["title_mon"],
@@ -113,6 +121,7 @@ def item_row_to_dict(row):
 
 
 def get_item_full(item_id: int):
+    # Нэг item-ийн бүрэн мэдээллийг (хүснэгт, нотолгоотой) татна
     conn = get_conn()
     try:
         cur = conn.cursor(dictionary=True)
@@ -122,6 +131,7 @@ def get_item_full(item_id: int):
             return None
         result = item_row_to_dict(item)
 
+        # Тухайн item-д холбоотой хүснэгтүүдийг татна
         cur.execute(
             "SELECT id, title, rows_data, sort_order FROM kr3_tables "
             "WHERE item_id=%s ORDER BY sort_order, id",
@@ -134,7 +144,7 @@ def get_item_full(item_id: int):
                 raw = raw.decode("utf-8")
             if isinstance(raw, str):
                 try:
-                    rows = json.loads(raw)
+                    rows = json.loads(raw)  # JSON string-iig list болгоно
                 except Exception:
                     rows = []
             else:
@@ -147,6 +157,7 @@ def get_item_full(item_id: int):
             })
         result["tables"] = tables
 
+        # Тухайн item-д холбоотой нотолгоонуудыг татна
         cur.execute(
             "SELECT id, label, file_path, sort_order FROM kr3_evidence "
             "WHERE item_id=%s ORDER BY sort_order, id",
@@ -163,11 +174,12 @@ def get_item_full(item_id: int):
 
 
 # ---------------------------------------------------------------------------
-# Public API
+# Нийтийн API (login шаардахгүй)
 # ---------------------------------------------------------------------------
 
 @app.get("/api/items")
 def list_items():
+    # Бүх шалгуурын жагсаалтыг буцаана
     conn = get_conn()
     try:
         cur = conn.cursor(dictionary=True)
@@ -184,6 +196,7 @@ def list_items():
 
 @app.get("/api/items/<int:item_id>")
 def get_item(item_id):
+    # Нэг шалгуурын дэлгэрэнгүй мэдээллийг буцаана
     item = get_item_full(item_id)
     if item is None:
         return jsonify({"error": "Not found"}), 404
@@ -191,11 +204,12 @@ def get_item(item_id):
 
 
 # ---------------------------------------------------------------------------
-# Auth
+# Нэвтрэлт
 # ---------------------------------------------------------------------------
 
 @app.post("/api/admin/login")
 def admin_login():
+    # Admin login: username/password шалган JWT token буцаана
     body = request.get_json(silent=True) or {}
     username = (body.get("username") or "").strip()
     password = body.get("password") or ""
@@ -204,12 +218,14 @@ def admin_login():
     conn = get_conn()
     try:
         cur = conn.cursor(dictionary=True)
+        # Username-aar admin хайна
         cur.execute("SELECT * FROM admins WHERE username=%s", (username,))
         admin = cur.fetchone()
         cur.close()
     finally:
         conn.close()
     if not admin or not verify_password(password, admin["password_hash"]):
+        # Admin олдсонгүй эсвэл нууц үг буруу
         return jsonify({"error": "Invalid credentials"}), 401
     return jsonify({"token": create_token(username), "username": username})
 
@@ -217,16 +233,18 @@ def admin_login():
 @app.get("/api/admin/me")
 @admin_required
 def admin_me():
+    # Одоогийн нэвтэрсэн admin-ийн мэдээллийг буцаана
     return jsonify({"username": request.admin_username})
 
 
 # ---------------------------------------------------------------------------
-# Admin CRUD - items
+# Admin CRUD - шалгуурууд
 # ---------------------------------------------------------------------------
 
 @app.post("/api/items")
 @admin_required
 def create_item():
+    # Шинэ шалгуур үүсгэнэ (admin эрх шаардана)
     body = request.get_json(silent=True) or {}
     if not body.get("title_mon"):
         return jsonify({"error": "title_mon is required"}), 400
@@ -249,7 +267,7 @@ def create_item():
                 body.get("sort_order", 0),
             ),
         )
-        new_id = cur.lastrowid
+        new_id = cur.lastrowid  # Шинэ мөрийн ID-г авна
         conn.commit()
         cur.close()
     finally:
@@ -260,6 +278,7 @@ def create_item():
 @app.put("/api/items/<int:item_id>")
 @admin_required
 def update_item(item_id):
+    # Шалгуурын мэдээллийг шинэчилнэ (зөвхөн ирсэн талбаруудыг)
     body = request.get_json(silent=True) or {}
     fields = [
         "title_mon", "title_eng", "verbatim", "explanation",
@@ -291,6 +310,7 @@ def update_item(item_id):
 @app.delete("/api/items/<int:item_id>")
 @admin_required
 def delete_item(item_id):
+    # Шалгуурыг устгана (холбоотой хүснэгт, нотолгоо мөн устана)
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -306,12 +326,13 @@ def delete_item(item_id):
 
 
 # ---------------------------------------------------------------------------
-# Admin CRUD - tables (nested under item)
+# Admin CRUD - хүснэгтүүд (item-д хамаарах)
 # ---------------------------------------------------------------------------
 
 @app.post("/api/items/<int:item_id>/tables")
 @admin_required
 def add_table(item_id):
+    # Шалгуурт шинэ хүснэгт нэмнэ
     body = request.get_json(silent=True) or {}
     title = body.get("title") or ""
     rows = body.get("data") or []
@@ -320,6 +341,7 @@ def add_table(item_id):
     conn = get_conn()
     try:
         cur = conn.cursor()
+        # Эхлээд item байгаа эсэхийг шалгана
         cur.execute("SELECT id FROM kr3_items WHERE id=%s", (item_id,))
         if cur.fetchone() is None:
             cur.close()
@@ -338,10 +360,12 @@ def add_table(item_id):
 @app.put("/api/tables/<int:table_id>")
 @admin_required
 def update_table(table_id):
+    # Хүснэгтийн мэдээллийг шинэчилнэ
     body = request.get_json(silent=True) or {}
     conn = get_conn()
     try:
         cur = conn.cursor(dictionary=True)
+        # Хүснэгт аль item-д хамаарахыг олно
         cur.execute("SELECT item_id FROM kr3_tables WHERE id=%s", (table_id,))
         row = cur.fetchone()
         if not row:
@@ -374,6 +398,7 @@ def update_table(table_id):
 @app.delete("/api/tables/<int:table_id>")
 @admin_required
 def delete_table(table_id):
+    # Хүснэгтийг устгана
     conn = get_conn()
     try:
         cur = conn.cursor(dictionary=True)
@@ -392,12 +417,13 @@ def delete_table(table_id):
 
 
 # ---------------------------------------------------------------------------
-# Admin CRUD - evidence
+# Admin CRUD - нотолгоо
 # ---------------------------------------------------------------------------
 
 @app.post("/api/items/<int:item_id>/evidence")
 @admin_required
 def add_evidence(item_id):
+    # Шалгуурт нотолгоо (файл) нэмнэ
     body = request.get_json(silent=True) or {}
     label = body.get("label") or ""
     file_path = body.get("file") or ""
@@ -422,6 +448,7 @@ def add_evidence(item_id):
 @app.delete("/api/evidence/<int:ev_id>")
 @admin_required
 def delete_evidence(ev_id):
+    # Нотолгоог устгана
     conn = get_conn()
     try:
         cur = conn.cursor(dictionary=True)
@@ -440,12 +467,13 @@ def delete_evidence(ev_id):
 
 
 # ---------------------------------------------------------------------------
-# File upload
+# Файл upload
 # ---------------------------------------------------------------------------
 
 @app.post("/api/upload")
 @admin_required
 def upload():
+    # Файл хүлээн авч /uploads/ folder-т хадгална
     if "file" not in request.files:
         return jsonify({"error": "no file part"}), 400
     f = request.files["file"]
@@ -453,20 +481,20 @@ def upload():
         return jsonify({"error": "no selected file"}), 400
     if not allowed_file(f.filename):
         return jsonify({"error": "file type not allowed"}), 400
-    safe = secure_filename(f.filename)
+    safe = secure_filename(f.filename)  # Аюулгүй файлын нэр үүсгэнэ
     if not safe:
         safe = "file"
-    unique = f"{uuid.uuid4().hex[:8]}_{safe}"
+    unique = f"{uuid.uuid4().hex[:8]}_{safe}"  # Давхардахгүйн тулд random нэр нэмнэ
     dest = UPLOAD_DIR / unique
     f.save(dest)
     return jsonify({"path": f"/uploads/{unique}", "filename": safe})
 
 
 # ---------------------------------------------------------------------------
-# Bootstrap
+# Эхлүүлэх
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    _init_admin()
-    _seed_if_empty()
+    _init_admin()      # Default admin байхгүй бол үүсгэнэ
+    _seed_if_empty()   # Мэдээлэл хоосон бол seed data ачаална
     app.run(host="0.0.0.0", port=5000, debug=True)

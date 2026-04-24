@@ -1,29 +1,34 @@
-// ---------------------------------------------------------------------------
-// Auth guard
-// ---------------------------------------------------------------------------
+// Token shalgalt: nevtreegui bol login huudas руу явна
+
 if (!API.token()) {
   window.location.href = "/login.html";
 }
 
+// Odoogoor newtersen bui username-g header ruu haruulna
 document.getElementById("adminUser").textContent = API.user() || "";
+
+// Logout tovch darаhad token ustgaj login ruu ywna
 document.getElementById("logoutBtn").addEventListener("click", () => {
   API.clearAuth();
   window.location.href = "/login.html";
 });
 
+// Dahin ashiglah global state
 const state = {
-  items: [],
-  current: null, // full item with tables+evidence
+  items: [],       // buh shalguurin jagsaalt
+  current: null,   // odoogoor songoson shalguur (husnegt+notolgoo)
 };
 
-const listEl = document.getElementById("adminList");
-const editorEl = document.getElementById("editorArea");
-const searchEl = document.getElementById("adminSearch");
-const toastArea = document.getElementById("toastArea");
+const listEl = document.getElementById("adminList");    // zuun taliin jagsaalt
+const editorEl = document.getElementById("editorArea"); // baruun taliin editor
+const searchEl = document.getElementById("adminSearch"); // hailtiin talbar
+const toastArea = document.getElementById("toastArea"); // medegdel garah heseg
 
-// ---------------------------------------------------------------------------
-// Utilities
-// ---------------------------------------------------------------------------
+
+// Допomогч функцуud
+
+
+// HTML injection-оос hamgaalah escape function
 function esc(s) {
   return String(s || "")
     .replace(/&/g, "&amp;")
@@ -32,6 +37,7 @@ function esc(s) {
     .replace(/"/g, "&quot;");
 }
 
+// delgetsiin dood buland medegdel harulna (3 second)
 function toast(msg, kind = "success") {
   const id = "t" + Date.now();
   const bg = { success: "bg-success", danger: "bg-danger", warning: "bg-warning" }[kind] || "bg-secondary";
@@ -49,10 +55,12 @@ function toast(msg, kind = "success") {
   el.addEventListener("hidden.bs.toast", () => el.remove());
 }
 
+// API aldaag barij awna: 401 bol logout hiine
 async function handle(fn) {
   try { return await fn(); }
   catch (e) {
     if (e.status === 401) {
+      // Token duuswal automat aar logout hiine
       API.clearAuth();
       window.location.href = "/login.html";
       return;
@@ -62,14 +70,17 @@ async function handle(fn) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Sidebar list
-// ---------------------------------------------------------------------------
+
+// Зүүн талын жагсаалт
+
+
+// API-s shalguuriin jagsalt-g tataj delgetsed harulna
 async function refreshList() {
   state.items = await handle(() => API.listItems());
   renderList();
 }
 
+// jagsaaltiig (filter-tei eswel bugdiig) HTML-d buteene
 function renderList(filter = "") {
   const q = filter.trim().toLowerCase();
   const items = q
@@ -83,22 +94,28 @@ function renderList(filter = "") {
       </button>`
     )
     .join("");
+  // jagsaaltin towch tus burt click event nemne
   listEl.querySelectorAll("[data-id]").forEach((el) => {
     el.addEventListener("click", () => loadItem(+el.dataset.id));
   });
 }
 
+// hailt oruulah uyd jagsaaltiig shuune
 searchEl.addEventListener("input", (e) => renderList(e.target.value));
 
-// ---------------------------------------------------------------------------
-// Editor
-// ---------------------------------------------------------------------------
+
+
+// Editor хэсэг
+
+
+// shalguurig  API-s tataj editor-т harulna
 async function loadItem(id) {
   state.current = await handle(() => API.getItem(id));
   renderEditor();
   renderList(searchEl.value);
 }
 
+// shine hooson shalguurin zagwar
 function emptyItem() {
   return {
     id: null,
@@ -114,13 +131,14 @@ function emptyItem() {
   };
 }
 
+// songoson shalguuriig editor-t delgetsend harulna
 function renderEditor() {
   const it = state.current;
   if (!it) {
     editorEl.innerHTML = "";
     return;
   }
-  const isNew = !it.id;
+  const isNew = !it.id; // shine eswel baigaa shalguur
   editorEl.innerHTML = `
     <div class="editor-section">
       <div class="d-flex justify-content-between align-items-center mb-3">
@@ -175,6 +193,7 @@ function renderEditor() {
   wireEditorEvents(isNew);
 }
 
+// shalguuriin husnegtuudiin jagsaaltid HTML uusgene
 function tablesBlock(it) {
   const list = (it.tables || [])
     .map(
@@ -201,6 +220,7 @@ function tablesBlock(it) {
     </div>`;
 }
 
+// shalguuriin notolgooni jagsaltig HTML uusegene
 function evidenceBlock(it) {
   const list = (it.evidence || [])
     .map(
@@ -237,31 +257,38 @@ function evidenceBlock(it) {
     </div>`;
 }
 
+// Editor-n towchnuudad event listener nemne
 function wireEditorEvents(isNew) {
   document.getElementById("saveItemBtn").addEventListener("click", saveItem);
   if (!isNew) {
     document.getElementById("deleteItemBtn")?.addEventListener("click", deleteItem);
     document.getElementById("addTableBtn")?.addEventListener("click", () => openTableModal(null));
     document.getElementById("addEvBtn")?.addEventListener("click", () => {
+      // Нотолгоо нэмэх мөрийг харуулна
       document.getElementById("addEvRow").style.display = "flex";
     });
     document.getElementById("evSaveBtn")?.addEventListener("click", addEvidence);
     document.getElementById("evUploadBtn")?.addEventListener("click", () => pickAndUpload("evFile"));
+    // husnegt zasah towchnuudad  event nemne
     editorEl.querySelectorAll("[data-edit-table]").forEach((el) =>
       el.addEventListener("click", () => openTableModal(+el.dataset.editTable))
     );
+    // husnegt ustgah towchnuudad event nemne
     editorEl.querySelectorAll("[data-del-table]").forEach((el) =>
       el.addEventListener("click", () => deleteTable(+el.dataset.delTable))
     );
+    // notolgoo ustgah towchnuudad event nemne
     editorEl.querySelectorAll("[data-del-ev]").forEach((el) =>
       el.addEventListener("click", () => deleteEvidence(+el.dataset.delEv))
     );
   }
+  // Upload towchnuudad event nemne
   editorEl.querySelectorAll("[data-upload]").forEach((btn) =>
     btn.addEventListener("click", () => pickAndUpload(btn.dataset.upload))
   );
 }
 
+// shalguuriig hadgalah (shine bol create, baigaa bol update)
 async function saveItem() {
   const body = {
     title_mon: document.getElementById("fTitleMon").value.trim(),
@@ -274,14 +301,15 @@ async function saveItem() {
   };
   if (!body.title_mon) return toast("Гарчиг заавал бөглөгдөнө", "warning");
   const saved = state.current.id
-    ? await handle(() => API.updateItem(state.current.id, body))
-    : await handle(() => API.createItem(body));
+    ? await handle(() => API.updateItem(state.current.id, body))  // baigaag shinechlene
+    : await handle(() => API.createItem(body));                   // shiniig uuusgene 
   state.current = saved;
   await refreshList();
   renderEditor();
   toast("Хадгаллаа");
 }
 
+// shalguuriig ustgah (batalgaajuulaltai)
 async function deleteItem() {
   if (!confirm("Энэ шалгуурыг устгах уу? Холбоотой хүснэгт, нотолгоо мөн устана.")) return;
   await handle(() => API.deleteItem(state.current.id));
@@ -291,9 +319,10 @@ async function deleteItem() {
   toast("Устгагдлаа");
 }
 
-// ---------------------------------------------------------------------------
-// Evidence
-// ---------------------------------------------------------------------------
+
+// Нотолгоо
+
+// shine notolgoo nemne
 async function addEvidence() {
   const label = document.getElementById("evLabel").value.trim();
   const file = document.getElementById("evFile").value.trim();
@@ -305,6 +334,7 @@ async function addEvidence() {
   toast("Нотолгоо нэмэгдлээ");
 }
 
+// notolgoo g ustgana (batalgaajuulalttai)
 async function deleteEvidence(id) {
   if (!confirm("Энэ нотолгоог устгах уу?")) return;
   state.current = await handle(() => API.deleteEvidence(id));
@@ -312,9 +342,11 @@ async function deleteEvidence(id) {
   toast("Устгагдлаа");
 }
 
-// ---------------------------------------------------------------------------
-// Upload helper
-// ---------------------------------------------------------------------------
+
+// file upload helper
+
+
+// file songoh tsonh neej upload hiiged input-d zamiig hiine
 function pickAndUpload(targetInputId) {
   const input = document.createElement("input");
   input.type = "file";
@@ -329,15 +361,17 @@ function pickAndUpload(targetInputId) {
   input.click();
 }
 
-// ---------------------------------------------------------------------------
-// Table modal (inline editor)
-// ---------------------------------------------------------------------------
+
+// husnegt modal (inline editor)
+
 const tableModalEl = document.getElementById("tableModal");
 const tableModal = new bootstrap.Modal(tableModalEl);
-let tableState = { id: null, title: "", columns: [], rows: [] };
+let tableState = { id: null, title: "", columns: [], rows: [] }; //odoo zasaj bui husnegtin medelel
 
+// husnegt zasah modal neene
 function openTableModal(tableId) {
   if (tableId) {
+    // baigaa husnegt-g zasah
     const tbl = (state.current.tables || []).find((t) => t.id === tableId);
     if (!tbl) return;
     const cols = Array.from(
@@ -350,9 +384,10 @@ function openTableModal(tableId) {
       id: tbl.id,
       title: tbl.title || "",
       columns: cols.length ? cols : ["Багана 1"],
-      rows: JSON.parse(JSON.stringify(tbl.data || [])),
+      rows: JSON.parse(JSON.stringify(tbl.data || [])), // Deep copy
     };
   } else {
+    // shine hooson husnegt
     tableState = { id: null, title: "", columns: ["Багана 1", "Багана 2"], rows: [{}] };
   }
   document.getElementById("tblTitle").value = tableState.title;
@@ -360,9 +395,12 @@ function openTableModal(tableId) {
   tableModal.show();
 }
 
+// husnegtiin editor dotor thead/tbody HTML buteene
 function renderTableEditor() {
   const thead = document.querySelector("#tblEditor thead");
   const tbody = document.querySelector("#tblEditor tbody");
+
+  // baganuudin garchgig thead-d harulna
   thead.innerHTML =
     "<tr>" +
     tableState.columns
@@ -378,6 +416,7 @@ function renderTableEditor() {
       .join("") +
     `<th style="width:40px;"></th></tr>`;
 
+  // moruudig tbody-d harulna
   tbody.innerHTML = tableState.rows
     .map(
       (row, rIdx) => `
@@ -393,12 +432,12 @@ function renderTableEditor() {
     )
     .join("");
 
+  // baganiin ner oorchlohod moriin ugugdliin key-г shinechlene
   thead.querySelectorAll(".col-name").forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const i = +e.target.dataset.idx;
       const oldName = tableState.columns[i];
       const newName = e.target.value;
-      // rename column in each row
       tableState.rows = tableState.rows.map((r) => {
         const nr = { ...r };
         if (oldName in nr) {
@@ -410,6 +449,8 @@ function renderTableEditor() {
       tableState.columns[i] = newName;
     });
   });
+
+  // bagana ustgah towch
   thead.querySelectorAll("[data-del-col]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       const i = +e.currentTarget.dataset.delCol;
@@ -417,12 +458,14 @@ function renderTableEditor() {
       tableState.columns.splice(i, 1);
       tableState.rows = tableState.rows.map((r) => {
         const nr = { ...r };
-        delete nr[name];
+        delete nr[name]; // tuhain baganiin ugugdliig mon ustgana
         return nr;
       });
       renderTableEditor();
     });
   });
+
+  // nudnii utga uurchluhud table-d hadgalna
   tbody.querySelectorAll(".cell").forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const r = +e.target.dataset.r;
@@ -430,6 +473,8 @@ function renderTableEditor() {
       tableState.rows[r][c] = e.target.value;
     });
   });
+
+  // mor ustgah towch
   tbody.querySelectorAll("[data-del-row]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       const r = +e.currentTarget.dataset.delRow;
@@ -439,16 +484,21 @@ function renderTableEditor() {
   });
 }
 
+// shine bagana nemeh towch
 document.getElementById("tblAddCol").addEventListener("click", () => {
   tableState.columns.push(`Багана ${tableState.columns.length + 1}`);
   renderTableEditor();
 });
+
+// shine mor nemeh (buh baganiig hooson utgaar)
 document.getElementById("tblAddRow").addEventListener("click", () => {
   const empty = {};
   tableState.columns.forEach((c) => (empty[c] = ""));
   tableState.rows.push(empty);
   renderTableEditor();
 });
+
+// Хүснэгтийг хадгалах (shine bol create, baigaa bol update)
 document.getElementById("tblSave").addEventListener("click", async () => {
   tableState.title = document.getElementById("tblTitle").value;
   const body = { title: tableState.title, data: tableState.rows };
@@ -462,6 +512,7 @@ document.getElementById("tblSave").addEventListener("click", async () => {
   toast("Хадгалагдлаа");
 });
 
+// husnegtig ustgana (batalgaajuulaltai)
 async function deleteTable(id) {
   if (!confirm("Хүснэгтийг устгах уу?")) return;
   state.current = await handle(() => API.deleteTable(id));
@@ -469,25 +520,27 @@ async function deleteTable(id) {
   toast("Устгагдлаа");
 }
 
-// ---------------------------------------------------------------------------
+
 // Toolbar
-// ---------------------------------------------------------------------------
+
+// "shine shalguur" towch: hooson form neene
 document.getElementById("newItemBtn").addEventListener("click", () => {
   state.current = emptyItem();
   renderEditor();
   renderList(searchEl.value);
 });
 
-// ---------------------------------------------------------------------------
-// Boot
-// ---------------------------------------------------------------------------
+
+// ehluuleh : token shalgan jagsaalt awna
+
 (async function () {
   try {
-    await API.me();
+    await API.me(); // Token huchintei esehiig shalgana
   } catch {
+    // Token huchingui bol logout hiine
     API.clearAuth();
     window.location.href = "/login.html";
     return;
   }
-  await refreshList();
+  await refreshList(); // shalguuriin jagsaalt awna
 })();
