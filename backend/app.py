@@ -586,4 +586,4 @@ def upload():
 if __name__ == "__main__":
     _init_admin()       # Анхдагч admin үүсгэнэ (хэрэв байхгүй бол)
     _seed_if_empty()    # Туршилтын өгөгдөл ачаална (хэрэв хоосон бол)
-    app.run(host="0.0.0.0", port=4000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
